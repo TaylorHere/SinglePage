@@ -13,6 +13,7 @@ Base.query = db_session.query_property()
 
 
 def init_db(test_data=True):
-    import useage
+    import Address
+    import User
     Base.metadata.create_all(bind=engine)
 # init_db()
