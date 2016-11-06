@@ -1,10 +1,10 @@
 # SinglePage
 this is a RESTful framework of flask ,you can just write a singe page ,then you done your job
-framework dependencies:
+framework dependencies:  
     flask
 ###this project start at 1024 of 2016
 this is what we want  
-useage dependecies:
+useage dependecies:  
     flask
     sqlalchemy
 ~~~python
