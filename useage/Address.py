@@ -13,7 +13,8 @@ class Address(SinglePage, Base):
     __tablename__ = 'address'
     id = Column(Integer, primary_key=True)
     address = Column(String(15))
-    # __exclude__ = ['id']
+    __in_exclude__ = ['id']
+    __exclude__ = ['id']
     # 处理http get方法
 
     def get(self, address_id):

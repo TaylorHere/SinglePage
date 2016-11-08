@@ -16,4 +16,7 @@ def init_db(test_data=True):
     import Address
     import User
     Base.metadata.create_all(bind=engine)
-# init_db()
+if __name__ == '__main__':
+    print 'init db..'
+    init_db()
+    print 'done'

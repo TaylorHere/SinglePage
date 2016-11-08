@@ -4,7 +4,10 @@ class Serializer():
         # class_type choice 'sqlalchemy', 'basic'
         self.class_type = class_type
         if self.class_type == 'sqlalchemy':
-            origin_instance = [instance for instance in origin_instance]
+            try:
+                origin_instance = [instance for instance in origin_instance]
+            except TypeError:
+                pass
             return self.typping(origin_instance)
         elif self.class_type == 'basic':
             return self.typping(origin_instance)
@@ -56,7 +59,8 @@ class Serializer():
                          getattr(instance, e), '__clall__') and e not in exclude])
         propery = dict([[p, getattr(instance, e).__get__(instance, type(instance))]
                         for p in full if hasattr(full[p], 'fset')])
-
+        print full
+        print propery
         full.update(propery)
         return full
 
@@ -68,6 +72,27 @@ class Serializer():
 
         full = dict([[e, instance.__getattribute__(e)]
                      for e in instance.__mapper__.c.keys() if e not in exclude])
+        property = dict([[e, getattr(instance, e)]
+                         for e in dir(instance) if e in instance.__property__])
+        full.update(property)
+        return full
+
+    def attr_dict_from_sqlalchemy_in_exclude(self, instance):
+        try:
+            in_exclude = [e for e in instance.__in_exclude__]
+        except:
+            in_exclude = []
+        try:
+            property = [p for p in instance.__property__]
+        except:
+            propery = []
+
+        full = dict([[e, instance.__getattribute__(e)]
+                     for e in instance.__mapper__.c.keys() if e not in in_exclude])
+        print full
+        property = dict([[e, getattr(instance, e)]
+                         for e in dir(instance) if e in instance.__property__])
+        full.update(property)
         return full
 serializer = Serializer()
 

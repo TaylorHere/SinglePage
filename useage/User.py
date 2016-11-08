@@ -7,36 +7,29 @@ from sqlalchemy import Column, Integer, String, Text, Boolean, Float, DateTime, 
 
 
 @url('/users/')
-class User(SinglePage, Base):
+class User(GeneralViewWithSQLAlchemy, Base):
+    # 配置数据库会话链接
+    db_session = db_session
+    # 定义delete方法是真实删除还是软删除
+    real_delete = False
     # 定义数据表
     __tablename__ = 'User'
     id = Column(Integer, primary_key=True)
     telephone = Column(String(15))
     nickname = Column(String(20))
-    # __exclude__ = ['id']
-    # 处理http get方法
+    _pwd = Column(String(50))
+    deleted = Column(Boolean())
+    # 定义哪些字段不由前端填充
+    __in_exclude__ = ['id', '_pwd', 'deleted']
+    # 定义哪些字段不展示给前端
+    __exclude__ = ['_pwd']
+    # 定义属性装饰方法
+    __property__ = {'pwd': '_pwd'}
 
-    def get(self, user_id):
-        # 查询数据
-        if user_id is not None:
-            return db_session.query(self.object).filter(self.object.id == user_id), 'sqlalchemy'
-        else:
-            return db_session.query(self.object).all(), 'sqlalchemy'
-    # 处理http post方法
+    @property
+    def pwd(self):
+        return self._pwd
 
-    def post(self):
-        # 获取request的json并新建一个用户
-        data = request.get_json()
-        user = self.object(data)
-        db_session.add(user)
-        db_session.commit()
-        return 'ok', 'basic'
-
-    def delete(self, user_id):
-        if user_id is not None:
-            db_session.query(self.object).filter(
-                self.object.id == user_id).delete()
-            return db_session.query(self.object).filter(
-                self.object.id == user_id), 'sqlalchemy'
-        else:
-            return 'need user_id', 'basic'
+    @pwd.setter
+    def pwd(self, value):
+        self._pwd = u'假装加密' + value
