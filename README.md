@@ -8,13 +8,14 @@ SingePage 是一个基于flask的python RESTful 框架
 
 
 
-框架目前主要有三个类，描述列表如下：
+框架目前主要类，描述列表如下：
 
 |            类名             |                    用途                    |
 | :-----------------------: | :--------------------------------------: |
 |            url            |                给View注册url                |
 |        SinglePage         |       基于flask.view，提供请求分发，结果序列化功能        |
 | GeneralViewWithSQLAlchemy | 基于SinglePage类的通用视图函数，能和SQLAlchemy配合快速实现接口 |
+|        permission         |           用于视图访问权限管理，可用来实现业务逻辑           |
 
 
 
@@ -366,6 +367,85 @@ __property__ = {'pwd': '_pwd'}
 | /users/id | GET    | 获取对应id的用户 |
 | /users/   | POST   | 新增一条      |
 | /users/id | PUT    | 更新对应id的用户 |
+
+
+
+## 权限管理
+
+~~~python
+class permission():
+
+    def get(self, request):
+        'get permission'
+        return True
+
+    def post(self, request):
+        'post permission'
+        return True
+
+    def put(self, request):
+        'put permission'
+        return True
+
+    def delete(self, request):
+        'delete permission'
+        return True
+~~~
+
+以上为permission源代码，一个permission可以控制一个视图不同动作函数的访问权限，准确说是访问这个动作后，是否执行动作内代码的权限。
+
+使用时只需继承permission类，并重载对应动作方法，返回True则为权限通过，返回false为权限不通过，
+
+最后将你的权限类注册到\__permission__列表中，一个视图可以拥有多个权限类，同时，权限动作方法中的注释会被作为权限不同时的默认返回。
+
+~~~python
+# coding: utf-8
+from SinglePage import *
+from SinglePage import app
+from base import Base, db_session
+from sqlalchemy import Column, Integer, String, Text, Boolean, Float, DateTime, Enum
+# 注册url
+
+
+@url('/users/')
+class User(GeneralViewWithSQLAlchemy, Base):
+
+    class UserPermission(permission):
+        """author:Taylor<tank357@icloud.com>"""
+
+        def get(self, request):
+            'do not open this api'
+            return False
+    # 配置数据库会话链接
+    db_session = db_session
+    # 定义delete方法是真实删除还是软删除
+    real_delete = False
+    # 定义数据表
+    __tablename__ = 'User'
+    id = Column(Integer, primary_key=True)
+    telephone = Column(String(15))
+    nickname = Column(String(20))
+    _pwd = Column(String(50))
+    deleted = Column(Boolean())
+    # 定义哪些字段不由前端填充
+    __in_exclude__ = ['id', '_pwd', 'deleted']
+    # 定义哪些字段不展示给前端
+    __exclude__ = ['_pwd']
+    # 定义属性装饰方法
+    __property__ = {'pwd': '_pwd'}
+    __permission__ = [UserPermission]
+
+    @property
+    def pwd(self):
+        return self._pwd
+
+    @pwd.setter
+    def pwd(self, value):
+        self._pwd = u'假装加密' + value
+
+~~~
+
+
 
 ## 未来
 
