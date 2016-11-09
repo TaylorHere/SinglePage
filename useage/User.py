@@ -8,6 +8,13 @@ from sqlalchemy import Column, Integer, String, Text, Boolean, Float, DateTime, 
 
 @url('/users/')
 class User(GeneralViewWithSQLAlchemy, Base):
+
+    class UserPermission(permission):
+        """author:Taylor<tank357@icloud.com>"""
+
+        def get(self, request):
+            'need login,pleasses add xxx-auth:user:password header,then try agin'
+            return False
     # 配置数据库会话链接
     db_session = db_session
     # 定义delete方法是真实删除还是软删除
@@ -25,6 +32,7 @@ class User(GeneralViewWithSQLAlchemy, Base):
     __exclude__ = ['_pwd']
     # 定义属性装饰方法
     __property__ = {'pwd': '_pwd'}
+    __permission__ = [UserPermission]
 
     @property
     def pwd(self):

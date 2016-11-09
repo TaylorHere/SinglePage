@@ -91,62 +91,108 @@ class SinglePage(View):
             return jsonify({'data': serializer.dump(response, class_type)})
 
 
+class permission():
+
+    def get(self, request):
+        'get permission'
+        return True
+
+    def post(self, request):
+        'post permission'
+        return True
+
+    def put(self, request):
+        'put permission'
+        return True
+
+    def delete(self, request):
+        'delete permission'
+        return True
+
+
 class GeneralViewWithSQLAlchemy(SinglePage):
     """docstring for GeneralView"""
     db_session = None
+    real_delete = False
+    __in_exclude__ = []
+    # 定义哪些字段不展示给前端
+    __exclude__ = []
+    # 定义属性装饰方法
+    __property__ = {}
+    __permission__ = [permission]
     # 处理http get方法
 
     def get(self, pk):
         # 查询数据
-        if pk is not None:
-            return self.db_session.query(self.object).filter(self.object.id == pk), 'sqlalchemy'
+        un_passed_permissions = [p for p in self.__permission__ if p().get(request)
+                                 is False]
+        if not un_passed_permissions:
+            if pk is not None:
+                return self.db_session.query(self.object).filter(self.object.id == pk), 'sqlalchemy'
+            else:
+                return self.db_session.query(self.object).all(), 'sqlalchemy'
         else:
-            return self.db_session.query(self.object).all(), 'sqlalchemy'
+            return "permission hint: " + ''.join([p.get.__doc__ for p in un_passed_permissions]), 'basic'
     # 处理http post方法
 
     def post(self):
         # 获取request的json并新建一个用户
-        data = request.get_json()
-        obj = self.object(data)
-        self.db_session.add(obj)
-        self.db_session.commit()
-        return obj, 'sqlalchemy'
+        un_passed_permissions = [p for p in self.__permission__ if p().post(request)
+                                 is False]
+        if not un_passed_permissions:
+            data = request.get_json()
+            obj = self.object(data)
+            self.db_session.add(obj)
+            self.db_session.commit()
+            return obj, 'sqlalchemy'
+        else:
+            return "permission hint: " + ''.join([p.post.__doc__ for p in un_passed_permissions]), 'basic'
 
     def delete(self, pk):
-        if self.real_delete:
-            if pk is not None:
-                self.db_session.query(self.object).filter(
-                    self.object.id == pk).delete()
-                self.db_session.commit()
-                return self.db_session.query(self.object).filter(
-                    self.object.id == pk), 'sqlalchemy'
+        un_passed_permissions = [p for p in self.__permission__ if p().delete(request)
+                                 is False]
+        if not un_passed_permissions:
+            if self.real_delete:
+                if pk is not None:
+                    self.db_session.query(self.object).filter(
+                        self.object.id == pk).delete()
+                    self.db_session.commit()
+                    return self.db_session.query(self.object).filter(
+                        self.object.id == pk), 'sqlalchemy'
+                else:
+                    return 'need pk', 'basic'
             else:
-                return 'need pk', 'basic'
+                if pk is not None:
+                    print pk
+                    self.db_session.query(self.object).filter(
+                        self.object.id == pk).update({self.object.deleted: True})
+                    self.db_session.commit()
+                    return self.db_session.query(self.object).filter(
+                        self.object.id == pk), 'sqlalchemy'
+                else:
+                    return 'need pk', 'basic'
         else:
-            if pk is not None:
-                print pk
-                self.db_session.query(self.object).filter(
-                    self.object.id == pk).update({self.object.deleted: True})
-                self.db_session.commit()
-                return self.db_session.query(self.object).filter(
-                    self.object.id == pk), 'sqlalchemy'
-            else:
-                return 'need pk', 'basic'
+            return "need permission: " + ''.join([p.delete.__doc__ for p in un_passed_permissions]), 'basic'
 
     def put(self, pk):
-        if pk is not None:
-            query = self.db_session.query(self.object).filter(
-                self.object.id == pk)
-            data = request.get_json()
-            properties = [d for d in data if d in self.__property__]
-            for d in properties:
-                setattr(self, d, data[d])
-                value = getattr(self, d)
-                del data[d]
-                data[self.__property__[d]] = value
-            query.update(data)
-            self.db_session.commit()
-            return self.db_session.query(self.object).filter(
-                self.object.id == pk), 'sqlalchemy'
+        un_passed_permissions = [p for p in self.__permission__ if p().put(request)
+                                 is False]
+        if not un_passed_permissions:
+            if pk is not None:
+                query = self.db_session.query(self.object).filter(
+                    self.object.id == pk)
+                data = request.get_json()
+                properties = [d for d in data if d in self.__property__]
+                for d in properties:
+                    setattr(self, d, data[d])
+                    value = getattr(self, d)
+                    del data[d]
+                    data[self.__property__[d]] = value
+                query.update(data)
+                self.db_session.commit()
+                return self.db_session.query(self.object).filter(
+                    self.object.id == pk), 'sqlalchemy'
+            else:
+                return 'need pk', 'basic'
         else:
-            return 'need pk', 'basic'
+            return "permission hint: " + ''.join([p.put.__doc__ for p in permissions]), 'basic'
