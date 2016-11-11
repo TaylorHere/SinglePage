@@ -1,5 +1,5 @@
 # Document for SingePage
-
+[GitHub](https://github.com/TaylorHere/SinglePage)
 SingePage 是一个基于flask的python RESTful 框架
 
 源代码很简单，容易修改与扩展
@@ -446,6 +446,72 @@ class User(GeneralViewWithSQLAlchemy, Base):
 ~~~
 
 
+
+## 过滤器
+
+对于过滤器的设计是最纠结的，既要考虑到拓展又要考虑到通用，同时还希望实现结果缓存。
+
+所以最终解决方案是，为每个get操作提供一组默认过滤器，注册在\__query_args__字典里，扩展时只需提供过滤器名称和实现方法即可。
+
+例如asc_order_by过滤器实现是这样的：
+
+~~~python
+def asc_order_by(self, query, value):
+        from sqlalchemy import text
+
+        return query.order_by(text(value))
+~~~
+
+我们一共实现了5个过滤器，并且很纠结是否应该实现最后两个，这5个过滤器如下：
+
+~~~python
+def filter(self, query, value):
+        """
+        等于 key = value
+        不等于 key != value
+        boolean 值 Flase：0，True：1
+        大于 key > value
+        小于 key < value
+        或 expression A or expression B
+        且 expression A and expression B
+            ex:
+                'name = taylor and and age <20 and deleted = 0'
+        """
+        from sqlalchemy import text
+
+        return query.filter(text(value))
+
+def asc_order_by(self, query, value):
+	from sqlalchemy import text
+
+	return query.order_by(text(value))
+
+def desc_order_by(self, query, value):
+	from sqlalchemy import desc
+	from sqlalchemy import text
+
+    return query.order_by(desc(text(value)))
+
+def limit(self, query, value):
+    return query[0:int(value)]
+
+def fileds(self, query, value):
+    pass
+
+    # 过滤器实现于args名称字典
+    __query_args__ = {'filter': filter, 'asc_order_by': asc_order_by,
+                      'desc_order_by': desc_order_by, 'limit': limit, 'fileds': fileds}
+~~~
+
+我们在思考是否应该默认提供limit(分页功能),和fileds(返回字段过滤)，因为我们认为应该把这两个交给Query资源去处理
+
+## Query资源
+
+Query资源即把查询本身看作一种资源，使用post发起一个资源，我们知道post动词应该对应创建操作，事实上我们就是这样思考的，post发起一次查询后，查询结果会被缓存，之后可以通过get或者post获取这次缓存，当然使用post执行获取，会显得很奇怪，但事实上，如果对于普通资源，我们使用post创建一个已存在资源时，他依然会把这个已存在资源返回，所以这样想就不奇怪了。
+
+Query资源可以轻松使用SinglePage子类来实现。
+
+Query资源还在开发中。
 
 ## 未来
 
