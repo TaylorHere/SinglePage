@@ -2,7 +2,7 @@
 from SinglePage import *
 from SinglePage import app
 from base import Base, db_session
-from sqlalchemy import Column, Integer, String, Text, Boolean, Float, DateTime, Enum
+from sqlalchemy import Column, Integer, String, Text, Boolean, Float, DateTime, Enum, text
 # 注册url
 
 
@@ -12,9 +12,9 @@ class User(GeneralViewWithSQLAlchemy, Base):
     class UserPermission(permission):
         """author:Taylor<tank357@icloud.com>"""
 
-        def get(self, request):
-            'need login,pleasses add xxx-auth:user:password header,then try agin'
-            return False
+        def get(self, request, pk):
+            'do not open this api'
+            return True
     # 配置数据库会话链接
     db_session = db_session
     # 定义delete方法是真实删除还是软删除

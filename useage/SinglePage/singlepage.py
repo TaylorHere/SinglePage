@@ -6,6 +6,7 @@ import inspect
 import sys
 
 app = Flask(__name__)
+app.config['resources'] = {}
 
 
 class url(object):
@@ -17,6 +18,8 @@ class url(object):
         def _call(*args, **kw):
             view = cls.as_view(cls.__name__)
             cls.pk_list = {}
+            resource_name = self.endpoint.replace('/', '')
+            app.config['resources'].update({resource_name: cls})
             for method in cls.methods:
                 lowcase_method = method.lower()
                 try:
@@ -38,10 +41,9 @@ class url(object):
                     cls.pk_list.update({lowcase_method: arg})
                     app.add_url_rule(self.endpoint + '<' + arg + '>',
                                      view_func=view, defaults=defaults_dict, methods=[method, ])
-                    print self.endpoint + '<' + arg + '>'
+                    print lowcase_method + ' ' + self.endpoint + '<' + arg + '>'
             cls.object = cls
             app.add_url_rule(self.endpoint, view_func=view)
-            print self.endpoint
             return cls()
         return _call
 
@@ -93,7 +95,7 @@ class SinglePage(View):
 
 class permission():
 
-    def get(self, request):
+    def get(self, request, pk):
         'get permission'
         return True
 
@@ -101,11 +103,11 @@ class permission():
         'post permission'
         return True
 
-    def put(self, request):
+    def put(self, request, pk):
         'put permission'
         return True
 
-    def delete(self, request):
+    def delete(self, request, pk):
         'delete permission'
         return True
 
@@ -122,20 +124,67 @@ class GeneralViewWithSQLAlchemy(SinglePage):
     __permission__ = [permission]
     # 处理http get方法
 
+    def filter(self, query, value):
+        """
+        等于 key = value
+        不等于 key != value
+        boolean 值 Flase：0，True：1
+        大于 key > value
+        小于 key < value
+        或 expression A or expression B
+        且 expression A and expression B
+            ex:
+                'name = taylor and and age <20 and deleted = 0'
+        """
+        from sqlalchemy import text
+
+        return query.filter(text(value))
+
+    def asc_order_by(self, query, value):
+        from sqlalchemy import text
+
+        return query.order_by(text(value))
+
+    def desc_order_by(self, query, value):
+        from sqlalchemy import desc
+        from sqlalchemy import text
+
+        return query.order_by(desc(text(value)))
+
+    def limit(self, query, value):
+        return query[0:int(value)]
+
+    def fileds(self, query, value):
+        pass
+
+    # 过滤器实现于args名称字典
+    __query_args__ = {'filter': filter, 'asc_order_by': asc_order_by,
+                      'desc_order_by': desc_order_by, 'limit': limit, 'fileds': fileds}
+
     def get(self, pk):
         # 查询数据
-        un_passed_permissions = [p for p in self.__permission__ if p().get(request)
+        un_passed_permissions = [p for p in self.__permission__ if p().get(request, pk)
                                  is False]
         if not un_passed_permissions:
             if pk is not None:
-                return self.db_session.query(self.object).filter(self.object.id == pk), 'sqlalchemy'
+                query = self.db_session.query(
+                    self.object).filter(self.object.id == pk)
+                # for arg in self.__query_args__:
+                #     value = request.args.get(arg, None)
+                #     query = self.__query_args__[arg](query, value)
+                return query, 'sqlalchemy'
             else:
-                return self.db_session.query(self.object).all(), 'sqlalchemy'
+                query = self.db_session.query(self.object)
+                for arg in self.__query_args__:
+                    value = request.args.get(arg, None)
+                    if value is not None:
+                        query = self.__query_args__[arg](self, query, value)
+                return query, 'sqlalchemy'
         else:
             return "permission hint: " + ''.join([p.get.__doc__ for p in un_passed_permissions]), 'basic'
     # 处理http post方法
 
-    def post(self):
+    def post(self, query):
         # 获取request的json并新建一个用户
         un_passed_permissions = [p for p in self.__permission__ if p().post(request)
                                  is False]
@@ -149,7 +198,7 @@ class GeneralViewWithSQLAlchemy(SinglePage):
             return "permission hint: " + ''.join([p.post.__doc__ for p in un_passed_permissions]), 'basic'
 
     def delete(self, pk):
-        un_passed_permissions = [p for p in self.__permission__ if p().delete(request)
+        un_passed_permissions = [p for p in self.__permission__ if p().delete(request, pk)
                                  is False]
         if not un_passed_permissions:
             if self.real_delete:
@@ -175,7 +224,7 @@ class GeneralViewWithSQLAlchemy(SinglePage):
             return "need permission: " + ''.join([p.delete.__doc__ for p in un_passed_permissions]), 'basic'
 
     def put(self, pk):
-        un_passed_permissions = [p for p in self.__permission__ if p().put(request)
+        un_passed_permissions = [p for p in self.__permission__ if p().put(request, pk)
                                  is False]
         if not un_passed_permissions:
             if pk is not None:
